@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "chamunda-mobile-app",
-    "slug": "chamunda-mobile-app",
+    "name": "MKS Jewellers",
+    "slug": "mks-jewellers",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#110722"
     },
     "ios": {
       "supportsTablet": true
@@ -18,7 +18,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#110722"
       },
       "edgeToEdgeEnabled": true
     },
