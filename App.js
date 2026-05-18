@@ -12,7 +12,8 @@ import {
   StatusBar,
   Modal,
   Linking,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
 import { 
   Gem, 
@@ -24,20 +25,33 @@ import {
   ArrowUpRight,
   X,
   Compass,
-  Briefcase
+  Briefcase,
+  Home,
+  Calculator,
+  MapPin,
+  Clock,
+  Mail,
+  Info
 } from 'lucide-react-native';
 import { supabase } from './src/lib/supabase';
 
 const { width } = Dimensions.get('window');
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('Home'); // Home, Calculator, Showroom
   const [banners, setBanners] = useState([]);
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All Pieces');
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [goldRate, setGoldRate] = useState({ gold22k: '7,025', gold24k: '7,665', silver: '91' });
+  const [goldRate, setGoldRate] = useState({ gold22k: 7025, gold24k: 7665, silver: 91 });
   const [activeSlide, setActiveSlide] = useState(0);
+
+  // Calculator State
+  const [calcWeight, setCalcWeight] = useState('10');
+  const [calcPurity, setCalcPurity] = useState('22K'); // 24K, 22K, 18K
+  const [calcMaking, setCalcMaking] = useState('12'); // 12% making charges
+  const [calcResult, setCalcResult] = useState({ metal: 0, making: 0, gst: 0, total: 0 });
 
   const categories = ['All Pieces', 'Gold Jewellery', 'Diamond Jewellery', 'Bullion', 'Bridal Collection'];
 
@@ -46,6 +60,10 @@ export default function App() {
     fetchProducts();
     fetchGoldRates();
   }, []);
+
+  useEffect(() => {
+    calculateValuation();
+  }, [calcWeight, calcPurity, calcMaking, goldRate]);
 
   const fetchBanners = async () => {
     try {
@@ -76,9 +94,9 @@ export default function App() {
       const json = await response.json();
       if (json.success && json.rates) {
         setGoldRate({
-          gold22k: Math.round(json.rates.gold22k).toLocaleString('en-IN'),
-          gold24k: Math.round(json.rates.gold24k).toLocaleString('en-IN'),
-          silver: Math.round(json.rates.silver).toLocaleString('en-IN')
+          gold22k: Math.round(json.rates.gold22k),
+          gold24k: Math.round(json.rates.gold24k),
+          silver: Math.round(json.rates.silver)
         });
       }
     } catch (err) {
@@ -95,6 +113,29 @@ export default function App() {
     }
   };
 
+  // Luxury Valuation Logic
+  const calculateValuation = () => {
+    const weight = parseFloat(calcWeight) || 0;
+    let ratePerGram = goldRate.gold22k;
+    
+    if (calcPurity === '24K') ratePerGram = goldRate.gold24k;
+    if (calcPurity === '18K') ratePerGram = Math.round(goldRate.gold24k * 0.75); // 18K is 75% pure gold
+
+    const metalVal = weight * ratePerGram;
+    const makingPercent = parseFloat(calcMaking) || 0;
+    const makingVal = metalVal * (makingPercent / 100);
+    const subtotal = metalVal + makingVal;
+    const gstVal = subtotal * 0.03; // Standard 3% Gold GST in India
+    const finalTotal = subtotal + gstVal;
+
+    setCalcResult({
+      metal: Math.round(metalVal),
+      making: Math.round(makingVal),
+      gst: Math.round(gstVal),
+      total: Math.round(finalTotal)
+    });
+  };
+
   const openWhatsApp = (product) => {
     const message = `Hello MKS Jewellers, I am interested in viewing this piece: \n\n*Product:* ${product.title}\n*Collection:* ${product.collection || 'Luxury Collection'}\n*Price:* ${product.price || 'Contact for Price'}\n\nPlease share more details.`;
     const encodedMsg = encodeURIComponent(message);
@@ -109,6 +150,13 @@ export default function App() {
         }
       })
       .catch((err) => console.log('Error opening WhatsApp', err));
+  };
+
+  const openWhatsAppCalculator = () => {
+    const message = `Hello MKS Jewellers, I generated a custom estimate using your app's live calculator: \n\n*Weight:* ${calcWeight} grams\n*Gold Purity:* ${calcPurity}\n*Making Charges:* ${calcMaking}%\n*Metal Value:* ₹ ${calcResult.metal.toLocaleString('en-IN')}\n*Estimated Valuation (inc. 3% GST):* ₹ ${calcResult.total.toLocaleString('en-IN')}\n\nPlease let me know how I can customize a design with this estimate.`;
+    const encodedMsg = encodeURIComponent(message);
+    const url = `whatsapp://send?phone=919636287754&text=${encodedMsg}`;
+    Linking.openURL(url);
   };
 
   const callShowroom = () => {
@@ -138,124 +186,324 @@ export default function App() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        {/* 2. Realtime Gold Ticker Card */}
-        <View style={styles.tickerCard}>
-          <View style={styles.tickerHeader}>
-            <Sparkles size={14} color="#eebf63" />
-            <Text style={styles.tickerTitle}>TODAY'S BULLION RATE (per 10g)</Text>
+      {/* Main Tab Render Switch */}
+      {activeTab === 'Home' && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          
+          {/* 2. Realtime Gold Ticker Card */}
+          <View style={styles.tickerCard}>
+            <View style={styles.tickerHeader}>
+              <Sparkles size={14} color="#eebf63" />
+              <Text style={styles.tickerTitle}>TODAY'S BULLION RATE (per 10g)</Text>
+            </View>
+            <View style={styles.tickerGrid}>
+              <View style={styles.tickerItem}>
+                <Text style={styles.tickerLabel}>Gold 24K</Text>
+                <Text style={styles.tickerValue}>₹{goldRate.gold24k.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.tickerItem}>
+                <Text style={styles.tickerLabel}>Gold 22K</Text>
+                <Text style={styles.tickerValue}>₹{goldRate.gold22k.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.tickerItem}>
+                <Text style={styles.tickerLabel}>Silver (1kg)</Text>
+                <Text style={styles.tickerValue}>₹{(goldRate.silver * 1000).toLocaleString('en-IN')}</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.tickerGrid}>
-            <View style={styles.tickerItem}>
-              <Text style={styles.tickerLabel}>Gold 24K</Text>
-              <Text style={styles.tickerValue}>₹{goldRate.gold24k}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.tickerItem}>
-              <Text style={styles.tickerLabel}>Gold 22K</Text>
-              <Text style={styles.tickerValue}>₹{goldRate.gold22k}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.tickerItem}>
-              <Text style={styles.tickerLabel}>Silver (1kg)</Text>
-              <Text style={styles.tickerValue}>₹{goldRate.silver * 1000}</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* 3. High-End Banner Slider (Paging Carousel) */}
-        {banners.length > 0 && (
-          <View style={styles.sliderWrapper}>
-            <FlatList
-              data={banners}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id.toString()}
-              onScroll={onScrollBanner}
-              renderItem={({ item }) => (
-                <View style={styles.slide}>
-                  <Image source={{ uri: item.desktop_image }} style={styles.slideImage} />
-                  <View style={styles.slideOverlay} />
-                  <View style={styles.slideContent}>
-                    <View style={styles.slideBadge}>
-                      <Text style={styles.slideBadgeText}>{item.luxury_tag || 'EXCLUSIVE'}</Text>
+          {/* 3. High-End Banner Slider (Paging Carousel) */}
+          {banners.length > 0 && (
+            <View style={styles.sliderWrapper}>
+              <FlatList
+                data={banners}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id.toString()}
+                onScroll={onScrollBanner}
+                renderItem={({ item }) => (
+                  <View style={styles.slide}>
+                    <Image source={{ uri: item.desktop_image }} style={styles.slideImage} />
+                    <View style={styles.slideOverlay} />
+                    <View style={styles.slideContent}>
+                      <View style={styles.slideBadge}>
+                        <Text style={styles.slideBadgeText}>{item.luxury_tag || 'EXCLUSIVE'}</Text>
+                      </View>
+                      <Text style={styles.slideTitle}>{item.title}</Text>
+                      <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
+                      <Text style={styles.slideDesc} numberOfLines={2}>{item.description}</Text>
                     </View>
-                    <Text style={styles.slideTitle}>{item.title}</Text>
-                    <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
-                    <Text style={styles.slideDesc} numberOfLines={2}>{item.description}</Text>
+                  </View>
+                )}
+              />
+              <View style={styles.dotsContainer}>
+                {banners.map((_, index) => (
+                  <View 
+                    key={index} 
+                    style={[styles.dot, activeSlide === index ? styles.activeDot : null]} 
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* 4. Luxury Category Filter Chips */}
+          <View style={styles.sectionHeader}>
+            <Compass size={16} color="#eebf63" />
+            <Text style={styles.sectionTitle}>EXPLORE OUR COLLECTIONS</Text>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.categoryScroll}
+            contentContainerStyle={styles.categoryContent}
+          >
+            {categories.map((cat, i) => (
+              <TouchableOpacity 
+                key={i} 
+                onPress={() => filterCategory(cat)}
+                style={[
+                  styles.categoryChip, 
+                  selectedCategory === cat ? styles.activeCategoryChip : null
+                ]}
+              >
+                <Text style={[
+                  styles.categoryChipText, 
+                  selectedCategory === cat ? styles.activeCategoryChipText : null
+                ]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* 5. Luxury Product Grid */}
+          <View style={styles.productGrid}>
+            {filteredProducts.map((product) => (
+              <TouchableOpacity 
+                key={product.id} 
+                style={styles.productCard}
+                onPress={() => setSelectedProduct(product)}
+              >
+                <Image source={{ uri: product.images[0] }} style={styles.productImage} />
+                <View style={styles.productBadge}>
+                  <Text style={styles.productBadgeText}>{product.category}</Text>
+                </View>
+                <View style={styles.productDetails}>
+                  <Text style={styles.productTitle} numberOfLines={1}>{product.title}</Text>
+                  <Text style={styles.productCollection} numberOfLines={1}>{product.collection || 'Signature Heritage'}</Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.productPrice}>{product.price || 'Price on Enquiry'}</Text>
+                    <ArrowUpRight size={14} color="#eebf63" />
                   </View>
                 </View>
-              )}
-            />
-            {/* Carousel Dots Ticker */}
-            <View style={styles.dotsContainer}>
-              {banners.map((_, index) => (
-                <View 
-                  key={index} 
-                  style={[styles.dot, activeSlide === index ? styles.activeDot : null]} 
-                />
-              ))}
-            </View>
+              </TouchableOpacity>
+            ))}
           </View>
-        )}
 
-        {/* 4. Luxury Category Filter Chips */}
-        <View style={styles.sectionHeader}>
-          <Compass size={16} color="#eebf63" />
-          <Text style={styles.sectionTitle}>EXPLORE OUR COLLECTIONS</Text>
-        </View>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.categoryScroll}
-          contentContainerStyle={styles.categoryContent}
-        >
-          {categories.map((cat, i) => (
-            <TouchableOpacity 
-              key={i} 
-              onPress={() => filterCategory(cat)}
-              style={[
-                styles.categoryChip, 
-                selectedCategory === cat ? styles.activeCategoryChip : null
-              ]}
-            >
-              <Text style={[
-                styles.categoryChipText, 
-                selectedCategory === cat ? styles.activeCategoryChipText : null
-              ]}>
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
         </ScrollView>
+      )}
 
-        {/* 5. Luxury Product Grid */}
-        <View style={styles.productGrid}>
-          {filteredProducts.map((product) => (
-            <TouchableOpacity 
-              key={product.id} 
-              style={styles.productCard}
-              onPress={() => setSelectedProduct(product)}
-            >
-              <Image source={{ uri: product.images[0] }} style={styles.productImage} />
-              <View style={styles.productBadge}>
-                <Text style={styles.productBadgeText}>{product.category}</Text>
+      {activeTab === 'Calculator' && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          
+          <View style={styles.calcPage}>
+            <View style={styles.calcHeader}>
+              <Calculator size={22} color="#eebf63" />
+              <Text style={styles.calcPageTitle}>GOLD VALUATION ENGINE</Text>
+            </View>
+            <Text style={styles.calcPageSubtitle}>Calculate instant transparent costings based on live wholesale commodity rates.</Text>
+
+            {/* Input fields */}
+            <View style={styles.calcForm}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>ENTER GOLD WEIGHT (GRAMS)</Text>
+                <TextInput
+                  value={calcWeight}
+                  onChangeText={setCalcWeight}
+                  keyboardType="numeric"
+                  placeholder="e.g. 10"
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  style={styles.inputBox}
+                />
               </View>
-              <View style={styles.productDetails}>
-                <Text style={styles.productTitle} numberOfLines={1}>{product.title}</Text>
-                <Text style={styles.productCollection} numberOfLines={1}>{product.collection || 'Signature Heritage'}</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.productPrice}>{product.price || 'Price on Enquiry'}</Text>
-                  <ArrowUpRight size={14} color="#eebf63" />
+
+              {/* Purity Selection Chips */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>SELECT GOLD PURITY</Text>
+                <View style={styles.purityRow}>
+                  {['24K', '22K', '18K'].map((purity) => (
+                    <TouchableOpacity
+                      key={purity}
+                      onPress={() => setCalcPurity(purity)}
+                      style={[styles.purityChip, calcPurity === purity ? styles.activePurityChip : null]}
+                    >
+                      <Text style={[styles.purityText, calcPurity === purity ? styles.activePurityText : null]}>
+                        {purity} ({purity === '24K' ? '99.9%' : purity === '22K' ? '91.6%' : '75.0%'})
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
-            </TouchableOpacity>
-          ))}
-        </View>
 
-      </ScrollView>
+              {/* Making Charges Slider mock input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>MAKING CHARGES (%)</Text>
+                <View style={styles.purityRow}>
+                  {['8', '12', '15', '18'].map((percent) => (
+                    <TouchableOpacity
+                      key={percent}
+                      onPress={() => setCalcMaking(percent)}
+                      style={[styles.miniChip, calcMaking === percent ? styles.activeMiniChip : null]}
+                    >
+                      <Text style={[styles.miniChipText, calcMaking === percent ? styles.activeMiniChipText : null]}>
+                        {percent}%
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Premium Gold Valuation Result Card */}
+            <View style={styles.resultCard}>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Raw Gold Value</Text>
+                <Text style={styles.resultValue}>₹ {calcResult.metal.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Making Charges ({calcMaking}%)</Text>
+                <Text style={styles.resultValue}>+ ₹ {calcResult.making.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Govt. GST (3%)</Text>
+                <Text style={styles.resultValue}>+ ₹ {calcResult.gst.toLocaleString('en-IN')}</Text>
+              </View>
+              
+              <View style={styles.calcDivider} />
+              
+              <View style={styles.totalRow}>
+                <View>
+                  <Text style={styles.totalLabel}>TOTAL ESTIMATED VALUATION</Text>
+                  <Text style={styles.taxDisclaimer}>*Excludes stone/gemstone charges</Text>
+                </View>
+                <Text style={styles.totalValue}>₹ {calcResult.total.toLocaleString('en-IN')}</Text>
+              </View>
+
+              <TouchableOpacity 
+                onPress={openWhatsAppCalculator}
+                style={styles.calcShareBtn}
+              >
+                <MessageSquare size={16} color="#110722" />
+                <Text style={styles.calcShareBtnText}>SEND ESTIMATE TO STORE</Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </ScrollView>
+      )}
+
+      {activeTab === 'Showroom' && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.showroomPage}>
+            
+            <View style={styles.showroomHero}>
+              <Image 
+                source={{ uri: "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?q=80&w=1200&auto=format&fit=crop" }} 
+                style={styles.showroomImg} 
+              />
+              <View style={styles.showroomOverlay} />
+              <Text style={styles.showroomBrand}>MKS ATELIER</Text>
+              <Text style={styles.showroomSub}>Where Gold Meets Grandeur</Text>
+            </View>
+
+            <View style={styles.showroomInfo}>
+              <Text style={styles.showroomStoryTitle}>OUR HERITAGE STORY</Text>
+              <Text style={styles.showroomStory}>
+                Founded with a mission to revive authentic Rajputana craft and Nakshi artwork, MKS Jewellers represents the highest standard of purity, authenticity, and bespoke craftsmanship in standard gold, diamonds, and precious gemstones.
+              </Text>
+
+              {/* Showroom metadata cards */}
+              <View style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                  <MapPin size={18} color="#eebf63" />
+                  <View style={styles.infoTextGroup}>
+                    <Text style={styles.infoLabel}>FLAGSHIP SHOWROOM</Text>
+                    <Text style={styles.infoValue}>124, Gold Bazaar, Jaipur, Rajasthan, India</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.infoRow, styles.marginTopBorder]}>
+                  <Clock size={18} color="#eebf63" />
+                  <View style={styles.infoTextGroup}>
+                    <Text style={styles.infoLabel}>BUSINESS HOURS</Text>
+                    <Text style={styles.infoValue}>Mon - Sun: 11:00 AM - 8:30 PM (IST)</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.infoRow, styles.marginTopBorder]}>
+                  <Mail size={18} color="#eebf63" />
+                  <View style={styles.infoTextGroup}>
+                    <Text style={styles.infoLabel}>OFFICIAL ENQUIRY EMAIL</Text>
+                    <Text style={styles.infoValue}>enquire@mksjewellers.com</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Call and WhatsApp Buttons */}
+              <View style={styles.contactRow}>
+                <TouchableOpacity 
+                  onPress={callShowroom}
+                  style={styles.contactBtn}
+                >
+                  <Phone size={16} color="#eebf63" />
+                  <Text style={styles.contactBtnText}>CALL ATELIER</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  onPress={() => Linking.openURL('whatsapp://send?phone=919636287754&text=Hello%20MKS%20Jewellers')}
+                  style={[styles.contactBtn, styles.contactBtnGold]}
+                >
+                  <MessageSquare size={16} color="#110722" />
+                  <Text style={[styles.contactBtnText, styles.contactBtnTextDark]}>WHATSAPP ENQUIRY</Text>
+                </TouchableOpacity>
+              </View>
+
+            </View>
+
+          </View>
+        </ScrollView>
+      )}
+
+      {/* State-Driven Bottom Tab Navigation */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          onPress={() => setActiveTab('Home')}
+          style={[styles.tabItem, activeTab === 'Home' ? styles.activeTabItem : null]}
+        >
+          <Home size={18} color={activeTab === 'Home' ? '#eebf63' : '#9a8fae'} />
+          <Text style={[styles.tabLabel, activeTab === 'Home' ? styles.activeTabLabel : null]}>Home</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => setActiveTab('Calculator')}
+          style={[styles.tabItem, activeTab === 'Calculator' ? styles.activeTabItem : null]}
+        >
+          <Calculator size={18} color={activeTab === 'Calculator' ? '#eebf63' : '#9a8fae'} />
+          <Text style={[styles.tabLabel, activeTab === 'Calculator' ? styles.activeTabLabel : null]}>Calculator</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => setActiveTab('Showroom')}
+          style={[styles.tabItem, activeTab === 'Showroom' ? styles.activeTabItem : null]}
+        >
+          <Info size={18} color={activeTab === 'Showroom' ? '#eebf63' : '#9a8fae'} />
+          <Text style={[styles.tabLabel, activeTab === 'Showroom' ? styles.activeTabLabel : null]}>Showroom</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* 6. Breathtaking Product Detail Sheet Modal */}
       {selectedProduct && (
@@ -268,7 +516,6 @@ export default function App() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               
-              {/* Close Bar */}
               <TouchableOpacity 
                 style={styles.closeButton}
                 onPress={() => setSelectedProduct(null)}
@@ -307,7 +554,6 @@ export default function App() {
                 </View>
               </ScrollView>
 
-              {/* Action Buttons footer */}
               <View style={styles.modalActions}>
                 <TouchableOpacity 
                   onPress={() => openWhatsApp(selectedProduct)}
@@ -340,7 +586,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'between',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 18,
     borderBottomWidth: 1,
@@ -384,7 +630,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 110, // Added padding to avoid tab bar overlap
   },
   tickerCard: {
     margin: 20,
@@ -611,6 +857,322 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
+  
+  /* Calculator Tab Styling */
+  calcPage: {
+    padding: 20,
+  },
+  calcHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  calcPageTitle: {
+    color: '#eebf63',
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  calcPageSubtitle: {
+    color: '#9a8fae',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 24,
+  },
+  calcForm: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(238, 191, 99, 0.1)',
+    marginBottom: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    color: '#eebf63',
+    fontSize: 9,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  inputBox: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(238,191,99,0.2)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  purityRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  purityChip: {
+    flex: 1,
+    minWidth: '30%',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(238,191,99,0.1)',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  activePurityChip: {
+    backgroundColor: '#eebf63',
+    borderColor: '#eebf63',
+  },
+  purityText: {
+    color: '#9a8fae',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  activePurityText: {
+    color: '#110722',
+  },
+  miniChip: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(238,191,99,0.1)',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  activeMiniChip: {
+    backgroundColor: '#eebf63',
+    borderColor: '#eebf63',
+  },
+  miniChipText: {
+    color: '#9a8fae',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  activeMiniChipText: {
+    color: '#110722',
+  },
+  resultCard: {
+    backgroundColor: 'rgba(238,191,99,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(238,191,99,0.3)',
+    borderRadius: 20,
+    padding: 20,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  resultLabel: {
+    color: '#d1c9df',
+    fontSize: 12,
+  },
+  resultValue: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  calcDivider: {
+    height: 1,
+    backgroundColor: 'rgba(238, 191, 99, 0.2)',
+    marginVertical: 14,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  totalLabel: {
+    color: '#eebf63',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+  },
+  taxDisclaimer: {
+    color: '#9a8fae',
+    fontSize: 8,
+    marginTop: 2,
+  },
+  totalValue: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'Playfair Display' : 'serif',
+  },
+  calcShareBtn: {
+    backgroundColor: '#eebf63',
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  calcShareBtnText: {
+    color: '#110722',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+  },
+
+  /* Showroom page styling */
+  showroomPage: {
+    flex: 1,
+  },
+  showroomHero: {
+    width: '100%',
+    height: 200,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  showroomImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  showroomOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(17,7,34,0.75)',
+  },
+  showroomBrand: {
+    color: '#eebf63',
+    fontSize: 26,
+    fontWeight: 'bold',
+    letterSpacing: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Cinzel' : 'serif',
+  },
+  showroomSub: {
+    color: '#fff',
+    fontSize: 11,
+    letterSpacing: 2,
+    marginTop: 4,
+    fontWeight: 'light',
+  },
+  showroomInfo: {
+    padding: 24,
+  },
+  showroomStoryTitle: {
+    color: '#eebf63',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 2.5,
+    marginBottom: 10,
+  },
+  showroomStory: {
+    color: '#d1c9df',
+    fontSize: 13,
+    lineHeight: 22,
+    marginBottom: 24,
+    fontWeight: 'light',
+  },
+  infoCard: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(238,191,99,0.1)',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 24,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  marginTopBorder: {
+    borderTopWidth: 0.5,
+    borderColor: 'rgba(238,191,99,0.1)',
+    paddingTop: 16,
+    marginTop: 8,
+  },
+  infoTextGroup: {
+    flex: 1,
+  },
+  infoLabel: {
+    color: '#eebf63',
+    fontSize: 8,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  infoValue: {
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  contactBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#eebf63',
+    borderRadius: 30,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  contactBtnGold: {
+    backgroundColor: '#eebf63',
+  },
+  contactBtnText: {
+    color: '#eebf63',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  contactBtnTextDark: {
+    color: '#110722',
+  },
+
+  /* Tab Bar navigation */
+  tabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(17, 7, 34, 0.96)',
+    borderTopWidth: 1,
+    borderColor: 'rgba(238, 191, 99, 0.15)',
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  tabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    opacity: 0.6,
+  },
+  activeTabItem: {
+    opacity: 1,
+  },
+  tabLabel: {
+    color: '#9a8fae',
+    fontSize: 9,
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
+  activeTabLabel: {
+    color: '#eebf63',
+    fontWeight: 'bold',
+  },
+
+  /* Modal styling */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
